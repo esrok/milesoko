@@ -25,7 +25,6 @@ parser.add_argument('--resume', '-r', action='store_true', help='Resume training
 parser.add_argument('--sample', '-s', type=int, help='Sample length', )
 
 args = parser.parse_args()
-print(args)
 
 data = args.file.read().decode('utf-8').lower().replace('\n', '')
 
