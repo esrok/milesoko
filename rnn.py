@@ -78,20 +78,31 @@ class GenerationCallback(Callback):
             logs = {}
 
         seed = self._wrapper.get_random_seed()
-        for d in self.DIVERSITIES:
-            filename = os.path.join(self.output_dir, self.sample_pattern.format(
-                epoch=epoch,
-                diversity=d,
-                **logs
-            ))
-            with open(filename, 'w') as f:
-                logger.debug('Storing samples in %s', filename)
-                f.write(self._wrapper.generate(
-                    seed=seed,
-                    length=self.sample_length,
-                    diversity=d,
-                ).encode('utf-8'))
 
+        for diversity in self.DIVERSITIES:
+            sample = self._wrapper.generate(
+                seed=seed,
+                length=self.sample_length,
+                diversity=diversity,
+            ).encode('utf-8')
+
+            if self.output_dir:
+                self.store_sample(sample, epoch, diversity)
+            else:
+                logger.debug('Sample %d-%.1f "%s"', epoch, diversity, sample)
+
+    def store_sample(self, sample, epoch, diversity):
+        dirname = os.path.join(self.output_dir, self.SAMPLES_DIR, )
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
+
+        filename = os.path.join(self.output_dir, self.sample_pattern.format(
+            epoch=epoch,
+            diversity=diversity,
+        ))
+        with open(filename, 'w') as f:
+            logger.debug('Storing samples in %s', filename)
+            f.write(sample)
 
 
 class RNNWrapper(object):
