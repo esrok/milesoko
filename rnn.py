@@ -22,7 +22,7 @@ def init_logging():
 init_logging()
 
 
-def get_char_indicies(data):
+def get_char_indices(data):
     chars = sorted(list(set(data)))
     char_to_index = {
         c: i for i, c in enumerate(chars)
@@ -34,7 +34,7 @@ def get_char_indicies(data):
 
 
 def get_train_data(data, seq_length, step=1):
-    char_to_index, index_to_char = get_char_indicies(data)
+    char_to_index, index_to_char = get_char_indices(data)
     n_chars = len(char_to_index)
 
     seqs = []
