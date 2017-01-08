@@ -107,6 +107,7 @@ class GenerationCallback(Callback):
 
 class RNNWrapper(object):
     MODEL_FILENAME = 'model.json'
+    MODEL_IMAGE_FILENAME = 'model.png'
     WRAPPER_FILENAME = 'wrapper.json'
 
     def __init__(self, data, output_dim, input_length, layers=1, dropout=None, output_dir=None, sample_length=None, initial_epoch=0):
