@@ -15,8 +15,11 @@ logger = None
 def init_logging():
     global logger
 
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s %(process)d %(levelname)s [%(name)s:%(funcName)s:%(lineno)d] %(message)s',
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 init_logging()
