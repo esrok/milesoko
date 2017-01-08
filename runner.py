@@ -1,8 +1,6 @@
 import argparse
 import os.path
 
-from rnn import RNNWrapper
-
 
 def is_dir(dirname):
     """Checks if a path is an actual directory"""
@@ -23,8 +21,14 @@ parser.add_argument('--out', '-o', type=is_dir)
 parser.add_argument('--file', '-f', type=argparse.FileType('r'), help='data file', required=True)
 parser.add_argument('--resume', '-r', action='store_true', help='Resume training from dir', )
 parser.add_argument('--sample', '-s', type=int, help='Sample length', )
+parser.add_argument('-seed', type=int, help='numpy initial seed')
 
 args = parser.parse_args()
+if args.seed:
+    import numpy as np
+    np.random.seed(args.seed)
+
+from rnn import RNNWrapper
 
 data = args.file.read().decode('utf-8').lower().replace('\n', '')
 
