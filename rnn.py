@@ -120,6 +120,7 @@ class RNNWrapper(object):
         self._sample_length = sample_length
         self._initial_epoch = initial_epoch
 
+        self.char_to_index, self.index_to_char = get_char_indices(data)
         self._input_dim = len(self.char_to_index)
         logger.debug('Input dim %d', self._input_dim)
 
