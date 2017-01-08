@@ -56,8 +56,9 @@ def get_train_data(data, seq_length, step=1):
 
 
 class GenerationCallback(Callback):
-    SAMPLE_PATTERN = 'samples-{epoch:02d}-{diversity:.1f}.txt'
-    DIVERSITIES = (0.2, 0.5, 0.7, 1.0, 1.2)
+    SAMPLES_DIR = 'samples'
+    SAMPLE_PATTERN = os.path.join(SAMPLES_DIR, 'samples-{epoch:02d}-{diversity:.1f}.txt')
+    DIVERSITIES = (0.2, 0.5, 0.7, 1.0, )
 
     def __init__(self, wrapper, output_dir, sample_length=None, sample_pattern=None):
         self._wrapper = wrapper
