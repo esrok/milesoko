@@ -110,42 +110,64 @@ class RNNWrapper(object):
     WRAPPER_FILENAME = 'wrapper.json'
 
     def __init__(self, data, output_dim, input_length, layers=1, dropout=None, output_dir=None, sample_length=None, initial_epoch=0):
-        self._initial_epoch = initial_epoch
         self._data = data
-        self.char_to_index, self.index_to_char = get_char_indicies(data)
+        self._output_dim = output_dim
+        self._input_length = input_length
+        self._layers = layers
+        self._dropout = dropout
+        self._output_dir = output_dir
+        self._sample_length = sample_length
+        self._initial_epoch = initial_epoch
 
         self._input_dim = len(self.char_to_index)
         logger.debug('Input dim %d', self._input_dim)
-        self._input_length = input_length
 
         self._model = self._create(output_dim, self._input_dim, input_length, layers, dropout)
+
         self._callbacks = []
+        self._callbacks.append(GenerationCallback(self, output_dir=output_dir, sample_length=sample_length))
         if output_dir is not None:
-            self._callbacks.append(GenerationCallback(self, output_dir, sample_length=sample_length))
             self._callbacks.append(self.get_save_callback(output_dir))
-
-            path = os.path.join(output_dir, self.MODEL_FILENAME)
-            logger.debug('Storing model in %s', path)
-            with open(path, 'w') as f:
-                f.write(self._model.to_json())
-
-            path = os.path.join(output_dir, self.WRAPPER_FILENAME)
-            logger.debug('Storing wrapper in %s', path)
-            with open(path, 'w') as f:
-                f.write(json.dumps({
-                    'output_dim': output_dim,
-                    'input_length': input_length,
-                    'layers': layers,
-                    'dropout': dropout,
-                    'output_dir': output_dir,
-                }))
+            self.store_model()
         self._fit = False
 
-    WEIGHTS_FILENAME_PATTERN = 'weights-{epoch:02d}-{loss:.4f}.hdf5'
-    WEIGHTS_FILENAME_GLOB = 'weights-*-*.hdf5'
+    def store_model(self):
+        path = os.path.join(self._output_dir, self.MODEL_FILENAME)
+        logger.info('Storing model in %s', path)
+        with open(path, 'w') as f:
+            f.write(self._model.to_json())
+
+        path = os.path.join(self._output_dir, self.WRAPPER_FILENAME)
+        logger.info('Storing wrapper in %s', path)
+        with open(path, 'w') as f:
+            f.write(json.dumps({
+                'output_dim': self._output_dim,
+                'input_length': self._input_length,
+                'layers': self._layers,
+                'dropout': self._dropout,
+                'output_dir': self._output_dir,
+            }))
+        try:
+            from keras.utils.visualize_util import plot
+            path = os.path.join(self._output_dir, self.MODEL_IMAGE_FILENAME)
+            logger.info('Storing model image in %s', path)
+            plot(self._model,
+                 to_file=path, show_shapes=True
+            )
+        except ImportError:
+            logger.info('Can\'t plot model', exc_info=True)
+            pass
+
+    WEIGHTS_DIR = 'weights'
+    WEIGHTS_FILENAME_PATTERN = os.path.join(WEIGHTS_DIR, 'weights-{epoch:02d}-{loss:.4f}.hdf5')
+    WEIGHTS_FILENAME_GLOB = os.path.join(WEIGHTS_DIR, 'weights-*-*.hdf5')
 
     @classmethod
     def get_save_callback(cls, dirname, model_name=None):
+        weigths_dirname = os.path.join(dirname, cls.WEIGHTS_DIR)
+        if not os.path.exists(weigths_dirname):
+            os.mkdir(weigths_dirname)
+
         pattern = str(cls.WEIGHTS_FILENAME_PATTERN)
         if model_name is not None:
             pattern = model_name + '-' + pattern
