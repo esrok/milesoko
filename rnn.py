@@ -223,12 +223,22 @@ class RNNWrapper(object):
 
     def _create(self, output_dim, input_dim, input_length, layers=1, dropout=None, ):
         model = Sequential()
+        returns = [True] * layers
+        returns[-1] = False
+
         for i in xrange(layers):
-            if dropout is not None and dropout > 0:
-                model.add(Dropout(dropout))
             if i == 0:
                 # input layer
-                model.add(LSTM(output_dim, input_dim=input_dim, input_length=input_length, ))
+                model.add(LSTM(
+                    output_dim, input_dim=input_dim, input_length=input_length,
+                    return_sequences=returns[i]
+                ))
+            else:
+                model.add(LSTM(output_dim, return_sequences=returns[i]))
+
+            if dropout is not None and dropout > 0:
+                    model.add(Dropout(dropout))
+
         model.add(Dense(input_dim,))
         model.add(Activation('softmax'))
         model.compile(loss='categorical_crossentropy', optimizer='adam')
