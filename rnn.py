@@ -132,11 +132,14 @@ class RNNWrapper(object):
         self._callbacks = []
         self._callbacks.append(GenerationCallback(self, output_dir=output_dir, sample_length=sample_length))
         if output_dir is not None:
-            self._callbacks.append(self.get_save_callback(output_dir))
             self.store_model()
+            self._callbacks.append(self.get_save_callback(output_dir))
         self._fit = False
 
     def store_model(self):
+        if not os.path.exists(self._output_dir):
+            os.mkdir(self._output_dir)
+
         path = os.path.join(self._output_dir, self.MODEL_FILENAME)
         logger.info('Storing model in %s', path)
         with open(path, 'w') as f:
