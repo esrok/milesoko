@@ -34,20 +34,22 @@ class AWSInstancePolicy(RejectPolicy):
             if line.startswith(self.GENERATION_STR):
                 pre_fingerprint_line = lines[fingerprint_line_index - 1]
                 fingerprint_line = lines[fingerprint_line_index]
-                if pre_fingerprint_line.startswith(self.FINGERPRINT_STR):
-                    for key_type, key_mapping in self.key_type_mapping.iteritems():
-                        if key_type in line:
-                            result_mapping = key_mapping
-                            break
-                    else:
-                        # key type mapping was not found
-                        logger.info('No key type was found in "%s"', line)
-                        continue
+                if not pre_fingerprint_line.startswith(self.FINGERPRINT_STR):
+                    continue
 
-                    key_fingerprint = fingerprint_line.split(' ')[0]
-                    key_fingerprint = ''.join(key_fingerprint.split(':'))
-                    logger.info('Found %s key fingerprint %s', result_mapping, key_fingerprint)
-                    yield result_mapping, key_fingerprint
+                for key_type, key_mapping in self.key_type_mapping.iteritems():
+                    if key_type in line:
+                        result_mapping = key_mapping
+                        break
+                else:
+                    # key type mapping was not found
+                    logger.info('No key type was found in "%s"', line)
+                    continue
+
+                key_fingerprint = fingerprint_line.split(' ')[0]
+                key_fingerprint = ''.join(key_fingerprint.split(':'))
+                logger.info('Found %s key fingerprint %s', result_mapping, key_fingerprint)
+                yield result_mapping, key_fingerprint
 
     def __init__(self, instance):
         self._instance = instance
