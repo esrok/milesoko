@@ -113,7 +113,7 @@ class RNNWrapper(object):
     MODEL_IMAGE_FILENAME = 'model.png'
     WRAPPER_FILENAME = 'wrapper.json'
 
-    def __init__(self, data, output_dim, input_length, layers=1, dropout=None, output_dir=None, sample_length=None, initial_epoch=0):
+    def __init__(self, data, output_dim, input_length, alphabet=None, layers=1, dropout=None, output_dir=None, sample_length=None, initial_epoch=0):
         self._data = data
         self._output_dim = output_dim
         self._input_length = input_length
@@ -123,8 +123,15 @@ class RNNWrapper(object):
         self._sample_length = sample_length
         self._initial_epoch = initial_epoch
 
-        self.char_to_index, self.index_to_char = get_char_indices(data)
+        if alphabet is None:
+            if isinstance(self._data):
+                self.char_to_index, self.index_to_char = get_char_indices(data)
+            else:
+                raise Exception('alphabet must be passed, when data is a generator')
+        else:
+            self.char_to_index, self.index_to_char = get_char_indices(alphabet)
         self._input_dim = len(self.char_to_index)
+
         logger.debug('Input dim %d', self._input_dim)
 
         self._model = self._create(output_dim, self._input_dim, input_length, layers, dropout)
@@ -255,8 +262,19 @@ class RNNWrapper(object):
         self._fit = True
         if self._initial_epoch > 1:
             nb_epoch = nb_epoch + self._initial_epoch
-        X, y = get_train_data(self._data, self._input_length, )
-        self._model.fit(X, y, batch_size=128, nb_epoch=nb_epoch, callbacks=self._callbacks, initial_epoch=self._initial_epoch)
+        if isinstance(self._data, (str, unicode)):
+            X, y = get_train_data(self._data, self._input_length, )
+            self._model.fit(
+                X, y,
+                batch_size=128, nb_epoch=nb_epoch, callbacks=self._callbacks,
+                initial_epoch=self._initial_epoch,
+            )
+        elif inspect.isgenerator(self._data):
+            self._model.fit_generator(
+                self._data,
+                batch_size=128, nb_epoch=nb_epoch, callbacks=self._callbacks,
+                initial_epoch=self._initial_epoch,
+            )
 
     def sample(self, preds, diversity=1.0):
         # helper function to sample an index from a probability array
