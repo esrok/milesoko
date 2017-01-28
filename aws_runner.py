@@ -89,16 +89,19 @@ class AWSSpotInstanceRunner(object):
     REQUEST_STATUS_FULFILLED = 'fulfilled'
 
 
-    def __init__(self, spot_price, launch_spec, volumes=None, client_token=None, username=EC2_USERNAME):
+    def __init__(self, spot_price, launch_spec, volume=None, client_token=None, username=EC2_USERNAME):
         self._ssh_client = SSHClient()
-        self._instance = None
-        self._launch_spec = launch_spec
+        self._instance = self._instance_id = None
         self._spot_instance_request_id = None
         self._state = None
         self._status = None
-        self._spot_price = spot_price
         self._client = boto3.client('ec2')
         self._ec2 = boto3.resource('ec2')
+
+        self._spot_price = spot_price
+        self._launch_spec = launch_spec
+        self._volume = volume
+        self._client_token = client_token
         self._username = username
 
     def _request_spot_instance(self, valid_until=None, dry_run=False, ):
