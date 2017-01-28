@@ -209,12 +209,30 @@ class AWSSpotInstanceRunner(object):
         self._ssh_connect()
         return self._ssh_client.exec_command(command, *args, **kwargs)
 
+    def _attach_volume(self, device='/dev/xvdh'):
+        response = self._client.attach_volume(
+            VolumeId=self._volume,
+            InstanceId=self._instance_id,
+            Device=device,
+        )
+        logger.info(
+            'Attaching volume %s as device %s',
+            self._volume,
+            response['Device'],
+        )
+
+    def _launch(self, valid_until=None, dry_run=False, wait_reachable=True):
+        self._request_spot_instance(valid_until, dry_run)
+        self._wait_until_fulfilled()
+        self._wait_until_running(wait_reachable=wait_reachable)
+        self._ssh_connect()
+        if self._volume is not None:
+            self._attach_volume()
+
     @contextmanager
-    def launch(self, valid_until=None, dry_run=False):
+    def launch(self, valid_until=None, dry_run=False, wait_reachable=True):
         try:
-            self._request_spot_instance(valid_until, dry_run)
-            self._wait_until_fulfilled()
-            self._wait_until_running()
+            self._launch(valid_until, dry_run, wait_reachable)
             yield
         finally:
             self._close()
