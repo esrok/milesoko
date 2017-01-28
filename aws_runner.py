@@ -7,7 +7,7 @@ from time import sleep
 
 import boto3
 from paramiko import SSHClient, RejectPolicy
-from paramiko.ssh_exception import SSHException
+from paramiko.ssh_exception import SSHException, NoValidConnectionsError
 
 
 logger = getLogger('aws-spot-runner')
@@ -188,8 +188,13 @@ class AWSSpotInstanceRunner(object):
                         self._instance.public_dns_name,
                         username=self._username,
                     )
+                    logger.info(
+                        'Successfully connected at %s@%s',
+                        self._username,
+                        self._instance.public_dns_name,
+                    )
                     break
-                except SSHException:
+                except (SSHException, NoValidConnectionsError):
                     logger.warn(
                         'Got SSH exception, while connecting to %s',
                         self._instance.public_dns_name,
