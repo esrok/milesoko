@@ -240,6 +240,7 @@ class AWSSpotInstanceRunner(object):
     def _close(self):
         if self._instance is not None:
             self._instance.terminate()
+        self._ssh_client.close()
         # TODO: cancel open spot instance requests
         # if self._state == self.REQUEST_STATE_OPEN:
         #     self._cancel_spot_request()
