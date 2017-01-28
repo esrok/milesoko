@@ -139,7 +139,7 @@ class AWSSpotInstanceRunner(object):
                         self._status,
                     )
                     if self._state == self.REQUEST_STATE_ACTIVE and \
-                                    self._status == self.REQUEST_STATUS_FULFILLED:
+                            self._status == self.REQUEST_STATUS_FULFILLED:
                         self._instance_id = description['InstanceId']
                         self._instance = self._ec2.Instance(self._instance_id)
                         return self._instance
