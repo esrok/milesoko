@@ -157,14 +157,13 @@ class AWSSpotInstanceRunner(object):
     def _check_reachability(self, instance_status):
         for check_name in ('InstanceStatus', 'SystemStatus'):
             check = instance_status[check_name]
-            logger.info('check %s', check)
             if check['Status'] != self.STATUS_CHECK_OK:
                 logger.info('%s check is %s', check_name, check['Status'])
                 return False
 
         return True
 
-    def _wait_until_running(self, timeout=DEFAULT_TIMEOUT, step=DEFAULT_WAIT_STEP):
+    def _wait_until_running(self, timeout=DEFAULT_TIMEOUT, step=DEFAULT_WAIT_STEP, wait_reachable=True):
         now = start = datetime.utcnow()
         while now < start + timeout:
             response = self._client.describe_instance_status(InstanceIds=[self._instance_id])
@@ -173,7 +172,8 @@ class AWSSpotInstanceRunner(object):
                 instance_state = instance_status['InstanceState']['Name']
                 logger.info('Instance now in state %s', instance_state)
                 if instance_state == self.INSTANCE_STATE_RUNNING:
-                    if self._check_reachability(instance_status):
+                    if not wait_reachable or self._check_reachability(instance_status):
+                        logger.info('Instance is running and reachable')
                         return self.INSTANCE_STATE_RUNNING
                 elif instance_state != self.INSTANCE_STATE_PENDING:
                     logger.warn('Unexpected instance state %s', instance_state)
