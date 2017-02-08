@@ -63,10 +63,10 @@ class GenerationCallback(Callback):
     SAMPLE_PATTERN = os.path.join(SAMPLES_DIR, 'samples-{epoch:02d}-{diversity:.1f}.txt')
     DIVERSITIES = (0.2, 0.5, 0.7, 1.0, )
 
-    def __init__(self, wrapper, output_dir, sample_length=None, sample_pattern=None):
+    def __init__(self, wrapper, output_dir, sample_length=None, sample_pattern=None, period=1):
         self._wrapper = wrapper
-        self.sample_pattern = self.SAMPLE_PATTERN
         self.output_dir = output_dir
+        self.sample_pattern = self.SAMPLE_PATTERN
 
         if sample_pattern:
             self.sample_pattern = sample_pattern
@@ -74,13 +74,16 @@ class GenerationCallback(Callback):
         self.sample_length = self._wrapper._input_length * 20
         if sample_length is not None:
             self.sample_length = sample_length
+
+        self._period = period
         super(GenerationCallback, self).__init__()
 
     def on_epoch_end(self, epoch, logs=None):
         if logs is None:
             logs = {}
 
-        seed = self._wrapper.get_random_seed()
+        if epoch % self._period != 0:
+            return
 
         for diversity in self.DIVERSITIES:
             sample = self._wrapper.generate(
@@ -113,7 +116,10 @@ class RNNWrapper(object):
     MODEL_IMAGE_FILENAME = 'model.png'
     WRAPPER_FILENAME = 'wrapper.json'
 
-    def __init__(self, data, output_dim, input_length, alphabet=None, layers=1, dropout=None, output_dir=None, sample_length=None, initial_epoch=0):
+    def __init__(self,
+                 data, output_dim, input_length, alphabet=None,
+                 layers=1, dropout=None, output_dir=None, sample_length=None, initial_epoch=0,
+                 period=1):
         self._data = data
         self._output_dim = output_dim
         self._input_length = input_length
@@ -137,10 +143,13 @@ class RNNWrapper(object):
         self._model = self._create(output_dim, self._input_dim, input_length, layers, dropout)
 
         self._callbacks = []
-        self._callbacks.append(GenerationCallback(self, output_dir=output_dir, sample_length=sample_length))
+        self._callbacks.append(GenerationCallback(
+            self, output_dir=output_dir, sample_length=sample_length,
+            period=period,
+        ))
         if output_dir is not None:
             self.store_model()
-            self._callbacks.append(self.get_save_callback(output_dir))
+            self._callbacks.append(self.get_save_callback(output_dir, period=period))
         self._fit = False
 
     def store_model(self):
@@ -178,7 +187,7 @@ class RNNWrapper(object):
     WEIGHTS_FILENAME_GLOB = os.path.join(WEIGHTS_DIR, 'weights-*-*.hdf5')
 
     @classmethod
-    def get_save_callback(cls, dirname, model_name=None):
+    def get_save_callback(cls, dirname, model_name=None, period=1):
         weigths_dirname = os.path.join(dirname, cls.WEIGHTS_DIR)
         if not os.path.exists(weigths_dirname):
             os.mkdir(weigths_dirname)
