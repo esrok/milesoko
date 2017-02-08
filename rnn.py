@@ -130,7 +130,7 @@ class RNNWrapper(object):
         self._initial_epoch = initial_epoch
 
         if alphabet is None:
-            if isinstance(self._data):
+            if isinstance(self._data, (str, unicode)):
                 self.char_to_index, self.index_to_char = get_char_indices(data)
             else:
                 raise Exception('alphabet must be passed, when data is a generator')
