@@ -6,14 +6,14 @@ from logging import getLogger
 from time import sleep
 
 import boto3
-from paramiko import SSHClient, RejectPolicy
+from paramiko import SSHClient, AutoAddPolicy, MissingHostKeyPolicy, RejectPolicy
 from paramiko.ssh_exception import SSHException, NoValidConnectionsError
 
 
 logger = getLogger('aws-spot-runner')
 
 
-class AWSInstancePolicy(RejectPolicy):
+class AWSInstancePolicy(MissingHostKeyPolicy):
     GENERATION_STR = 'Generating public/private'
     FINGERPRINT_STR = 'The key fingerprint is:'
     FINGERPRINT_OFFSET = 4
@@ -56,6 +56,8 @@ class AWSInstancePolicy(RejectPolicy):
         self._hostname = instance.public_dns_name
         self._ip_address = instance.public_ip_address
         self._fingerprints = None
+        self._reject = RejectPolicy()
+        self._accept = AutoAddPolicy()
 
     def _verify(self, key):
         hex_key_fingerprint = key.get_fingerprint().encode('hex')
@@ -71,8 +73,8 @@ class AWSInstancePolicy(RejectPolicy):
         result = result and self._verify(key)
         if not result:
             logger.error('Key verification failed for %s', hostname)
-            return super(AWSInstancePolicy, self).missing_host_key(client, hostname, key)
-        return
+            return self._reject.missing_host_key(client, hostname, key)
+        return self._accept.missing_host_key(client, hostname, key)
 
 
 class AWSSpotInstanceRunner(object):
