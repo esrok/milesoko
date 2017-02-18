@@ -244,12 +244,13 @@ class AWSSpotInstanceRunner(object):
             self._attach_volume()
 
     @contextmanager
-    def launch(self, valid_until=None, dry_run=False, wait_reachable=True):
+    def launch(self, valid_until=None, dry_run=False, wait_reachable=True, debug=False):
         try:
             self._launch(valid_until, dry_run, wait_reachable)
             yield
         finally:
-            self._close()
+            if not debug:
+                self._close()
 
     def _close(self):
         if self._instance is not None:
