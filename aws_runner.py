@@ -181,6 +181,18 @@ class AWSSpotInstanceRunner(object):
                     logger.warn('Unexpected instance state %s', instance_state)
             sleep(step)
 
+    @property
+    def ssh_creds(self):
+        assert self._instance is not None, \
+            'AWS instances must be running to get ssh connection'
+        return '{username}@{hostname}'.format(
+            username=self._username,
+            hostname=self._instance.public_dns_name,
+        )
+
+    def save_ssh_keys(self, filename):
+        return self._ssh_client.save_host_keys(filename)
+
     def _ssh_connect(self, timeout=DEFAULT_TIMEOUT, step=DEFAULT_WAIT_STEP):
         transport = self._ssh_client.get_transport()
         if transport is None or not transport.active:
