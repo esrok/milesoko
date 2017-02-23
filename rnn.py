@@ -1,5 +1,6 @@
 from glob import glob
 import json
+import inspect
 import os.path
 import random
 
@@ -138,7 +139,8 @@ class RNNWrapper(object):
             else:
                 raise Exception('alphabet must be passed, when data is a generator')
         else:
-            self.char_to_index, self.index_to_char = get_char_indices(alphabet)
+            self.char_to_index = {c: i for i, c in enumerate(alphabet)}
+            self.index_to_char = {i: c for i, c in enumerate(alphabet)}
         self._input_dim = len(self.char_to_index)
 
         logger.debug('Input dim %d', self._input_dim)
@@ -154,6 +156,7 @@ class RNNWrapper(object):
             self.store_model()
             self._callbacks.append(self.get_save_callback(output_dir, period=period))
         self._fit = False
+        self._seed = None
 
     def store_model(self):
         if not os.path.exists(self._output_dir):
@@ -270,7 +273,11 @@ class RNNWrapper(object):
         model.compile(loss='categorical_crossentropy', optimizer='adam')
         return model
 
-    def fit(self, nb_epoch=0, ):
+    def fit(self, nb_epoch=0, generation_seed=None, samples_per_epoch=None, validation_data=None, nb_val_samples=None):
+        self._seed = generation_seed
+        if generation_seed is None and not inspect.isgenerator(self._data):
+            self._seed = self.get_random_seed(self._input_length)
+
         self._fit = True
         if self._initial_epoch > 1:
             nb_epoch = nb_epoch + self._initial_epoch
@@ -307,9 +314,15 @@ class RNNWrapper(object):
         assert self._fit
 
         if seed is None:
-            seed = self.get_random_seed()
-        initial_seed = unicode(seed)
+            if self._seed is not None:
+                seed = list(self._seed)
+            else:
+                raise Exception('Can\'t generate without a seed')
+
+        initial_seed = self._seed
+        seed = list(initial_seed)[:self._input_length]
         result = []
+
         for _ in xrange(length):
             seq = np.zeros((1, self._input_length, self._input_dim))
             for i, char in enumerate(seed):
@@ -319,6 +332,6 @@ class RNNWrapper(object):
             new_char_index = self.sample(preds, diversity)
             new_char = self.index_to_char[new_char_index]
             result.append(new_char)
-            seed += new_char
+            seed.append(new_char)
             seed = seed[1:]
-        return initial_seed + ''.join(result)
+        return u''.join(initial_seed + result)
