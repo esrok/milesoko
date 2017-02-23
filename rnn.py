@@ -86,16 +86,19 @@ class GenerationCallback(Callback):
             return
 
         for diversity in self.DIVERSITIES:
-            sample = self._wrapper.generate(
-                seed=seed,
-                length=self.sample_length,
-                diversity=diversity,
-            ).encode('utf-8')
+            try:
+                sample = self._wrapper.generate(
+                    length=self.sample_length,
+                    diversity=diversity,
+                ).encode('utf-8')
 
-            if self.output_dir:
-                self.store_sample(sample, epoch, diversity)
-            else:
-                logger.debug('Sample %d-%.1f "%s"', epoch, diversity, sample)
+                if self.output_dir:
+                    self.store_sample(sample, epoch, diversity)
+                else:
+                    logger.debug('Sample %d-%.1f "%s"', epoch, diversity, sample)
+            except Exception:
+                logger.warn('Generation of samples failed', exc_info=True)
+                break
 
     def store_sample(self, sample, epoch, diversity):
         dirname = os.path.join(self.output_dir, self.SAMPLES_DIR, )
