@@ -208,7 +208,7 @@ class RNNWrapper(object):
         return callback
 
     @classmethod
-    def get_best_model(cls, data, from_dir):
+    def get_best_model(cls, data, from_dir, **kwargs):
         model_filename = os.path.join(from_dir, cls.MODEL_FILENAME)
         wrapper_filename = os.path.join(from_dir, cls.WRAPPER_FILENAME)
         weights_filenames = glob(os.path.join(from_dir, cls.WEIGHTS_FILENAME_GLOB))
@@ -244,7 +244,7 @@ class RNNWrapper(object):
             initial_epoch = best_epoch + 1
         else:
             initial_epoch = None
-
+        wrapper_params.update(kwargs)
         wrapper = cls(data=data, initial_epoch=initial_epoch, **wrapper_params)
         if best_weights is not None:
             wrapper._model.load_weights(best_weights)
@@ -291,8 +291,10 @@ class RNNWrapper(object):
         elif inspect.isgenerator(self._data):
             self._model.fit_generator(
                 self._data,
-                batch_size=128, nb_epoch=nb_epoch, callbacks=self._callbacks,
-                initial_epoch=self._initial_epoch,
+                nb_epoch=nb_epoch, callbacks=self._callbacks,
+                initial_epoch=self._initial_epoch, samples_per_epoch=samples_per_epoch,
+                validation_data=validation_data,
+                nb_val_samples=nb_val_samples,
             )
 
     def sample(self, preds, diversity=1.0):
