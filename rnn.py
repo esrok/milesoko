@@ -203,7 +203,7 @@ class RNNWrapper(object):
             pattern = model_name + '-' + pattern
         callback = ModelCheckpoint(
             os.path.join(dirname, pattern),
-            monitor='loss', verbose=1, save_best_only=True, mode='min',
+            monitor='loss', verbose=1, save_best_only=True, mode='min', period=period,
         )
         return callback
 
