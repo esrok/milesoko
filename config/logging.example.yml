@@ -1,0 +1,29 @@
+version: 1
+
+root:
+  propagate: 0
+  level: WARNING
+  handlers: [console, file]
+
+loggers:
+  spot-training:
+    propagate: 0
+    level: DEBUG
+    handlers: [console]
+
+handlers:
+  console:
+    class : logging.StreamHandler
+    formatter: defaultFormatter
+    stream  : ext://sys.stdout
+  file:
+    class: logging.handlers.RotatingFileHandler
+    maxBytes: 10485760
+    backupCount: 4
+    formatter: defaultFormatter
+    filename: logs/spot-training-example.log
+
+formatters:
+  defaultFormatter:
+    format: "%(asctime)s %(process)d %(levelname)s [%(name)s:%(funcName)s:%(lineno)d] %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
