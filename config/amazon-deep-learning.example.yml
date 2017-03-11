@@ -1,0 +1,17 @@
+spot_price: '0.15'
+username: 'ec2-user'
+volume: 'vol-8082233216da99ef0'
+launch_spec:
+  # amazon deep learning ami
+  ImageId: 'ami-7cb9896b'
+  KeyName: 'yourkey'
+  SecurityGroups:
+    # security group names
+    - 'home'
+    - 'work'
+  InstanceType: 'g2.2xlarge'
+  Placement:
+    AvailabilityZone: 'us-east-1c'
+  EbsOptimized: False
+  Monitoring:
+    Enabled: False

@@ -21,26 +21,31 @@ parser.add_argument('--out', '-o', type=is_dir)
 parser.add_argument('--file', '-f', type=argparse.FileType('r'), help='data file', required=True)
 parser.add_argument('--resume', '-r', action='store_true', help='Resume training from dir', )
 parser.add_argument('--sample', '-s', type=int, help='Sample length', )
-parser.add_argument('-seed', type=int, help='numpy initial seed')
+parser.add_argument('--seed', type=int, help='numpy initial seed')
 
-args = parser.parse_args()
-if args.seed:
-    import numpy as np
-    np.random.seed(args.seed)
 
-from rnn import RNNWrapper
+if __name__ == '__main__':
+    args = parser.parse_args()
+    if args.seed:
+        import numpy as np
+        np.random.seed(args.seed)
 
-data = args.file.read().decode('utf-8').lower().replace('\n', '')
+    from rnn import RNNWrapper
 
-if not args.resume:
-    wrapper = RNNWrapper(data,
-        output_dim=args.num,
-        input_length=args.length,
-        layers=args.layers,
-        dropout=args.dropout,
-        output_dir=args.out,
-        sample_length=args.sample,
-    )
-else:
-    wrapper = RNNWrapper.get_best_model(data, args.out)
-wrapper.fit(nb_epoch=args.epoch)
+    data = args.file.read().decode('utf-8').lower().replace('\n', '')
+
+    if not args.resume:
+        wrapper = RNNWrapper(data,
+            output_dim=args.num,
+            input_length=args.length,
+            layers=args.layers,
+            dropout=args.dropout,
+            output_dir=args.out,
+            sample_length=args.sample,
+        )
+    else:
+        wrapper = RNNWrapper.get_best_model(
+            data, args.out,
+
+        )
+    wrapper.fit(nb_epoch=args.epoch)

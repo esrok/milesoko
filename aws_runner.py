@@ -6,14 +6,14 @@ from logging import getLogger
 from time import sleep
 
 import boto3
-from paramiko import SSHClient, RejectPolicy
+from paramiko import SSHClient, AutoAddPolicy, MissingHostKeyPolicy, RejectPolicy
 from paramiko.ssh_exception import SSHException, NoValidConnectionsError
 
 
 logger = getLogger('aws-spot-runner')
 
 
-class AWSInstancePolicy(RejectPolicy):
+class AWSInstancePolicy(MissingHostKeyPolicy):
     GENERATION_STR = 'Generating public/private'
     FINGERPRINT_STR = 'The key fingerprint is:'
     FINGERPRINT_OFFSET = 4
@@ -56,6 +56,8 @@ class AWSInstancePolicy(RejectPolicy):
         self._hostname = instance.public_dns_name
         self._ip_address = instance.public_ip_address
         self._fingerprints = None
+        self._reject = RejectPolicy()
+        self._accept = AutoAddPolicy()
 
     def _verify(self, key):
         hex_key_fingerprint = key.get_fingerprint().encode('hex')
@@ -71,8 +73,8 @@ class AWSInstancePolicy(RejectPolicy):
         result = result and self._verify(key)
         if not result:
             logger.error('Key verification failed for %s', hostname)
-            return super(AWSInstancePolicy, self).missing_host_key(client, hostname, key)
-        return
+            return self._reject.missing_host_key(client, hostname, key)
+        return self._accept.missing_host_key(client, hostname, key)
 
 
 class AWSSpotInstanceRunner(object):
@@ -179,6 +181,18 @@ class AWSSpotInstanceRunner(object):
                     logger.warn('Unexpected instance state %s', instance_state)
             sleep(step)
 
+    @property
+    def ssh_creds(self):
+        assert self._instance is not None, \
+            'AWS instances must be running to get ssh connection'
+        return '{username}@{hostname}'.format(
+            username=self._username,
+            hostname=self._instance.public_dns_name,
+        )
+
+    def save_ssh_keys(self, filename):
+        return self._ssh_client.save_host_keys(filename)
+
     def _ssh_connect(self, timeout=DEFAULT_TIMEOUT, step=DEFAULT_WAIT_STEP):
         transport = self._ssh_client.get_transport()
         if transport is None or not transport.active:
@@ -230,12 +244,13 @@ class AWSSpotInstanceRunner(object):
             self._attach_volume()
 
     @contextmanager
-    def launch(self, valid_until=None, dry_run=False, wait_reachable=True):
+    def launch(self, valid_until=None, dry_run=False, wait_reachable=True, debug=False):
         try:
             self._launch(valid_until, dry_run, wait_reachable)
             yield
         finally:
-            self._close()
+            if not debug:
+                self._close()
 
     def _close(self):
         if self._instance is not None:

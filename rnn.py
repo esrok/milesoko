@@ -1,5 +1,6 @@
 from glob import glob
 import json
+import inspect
 import os.path
 import random
 
@@ -63,10 +64,10 @@ class GenerationCallback(Callback):
     SAMPLE_PATTERN = os.path.join(SAMPLES_DIR, 'samples-{epoch:02d}-{diversity:.1f}.txt')
     DIVERSITIES = (0.2, 0.5, 0.7, 1.0, )
 
-    def __init__(self, wrapper, output_dir, sample_length=None, sample_pattern=None):
+    def __init__(self, wrapper, output_dir, sample_length=None, sample_pattern=None, period=1):
         self._wrapper = wrapper
-        self.sample_pattern = self.SAMPLE_PATTERN
         self.output_dir = output_dir
+        self.sample_pattern = self.SAMPLE_PATTERN
 
         if sample_pattern:
             self.sample_pattern = sample_pattern
@@ -74,25 +75,31 @@ class GenerationCallback(Callback):
         self.sample_length = self._wrapper._input_length * 20
         if sample_length is not None:
             self.sample_length = sample_length
+
+        self._period = period
         super(GenerationCallback, self).__init__()
 
     def on_epoch_end(self, epoch, logs=None):
         if logs is None:
             logs = {}
 
-        seed = self._wrapper.get_random_seed()
+        if epoch % self._period != 0:
+            return
 
         for diversity in self.DIVERSITIES:
-            sample = self._wrapper.generate(
-                seed=seed,
-                length=self.sample_length,
-                diversity=diversity,
-            ).encode('utf-8')
+            try:
+                sample = self._wrapper.generate(
+                    length=self.sample_length,
+                    diversity=diversity,
+                ).encode('utf-8')
 
-            if self.output_dir:
-                self.store_sample(sample, epoch, diversity)
-            else:
-                logger.debug('Sample %d-%.1f "%s"', epoch, diversity, sample)
+                if self.output_dir:
+                    self.store_sample(sample, epoch, diversity)
+                else:
+                    logger.debug('Sample %d-%.1f "%s"', epoch, diversity, sample)
+            except Exception:
+                logger.warn('Generation of samples failed', exc_info=True)
+                break
 
     def store_sample(self, sample, epoch, diversity):
         dirname = os.path.join(self.output_dir, self.SAMPLES_DIR, )
@@ -113,7 +120,10 @@ class RNNWrapper(object):
     MODEL_IMAGE_FILENAME = 'model.png'
     WRAPPER_FILENAME = 'wrapper.json'
 
-    def __init__(self, data, output_dim, input_length, alphabet=None, layers=1, dropout=None, output_dir=None, sample_length=None, initial_epoch=0):
+    def __init__(self,
+                 data, output_dim, input_length, alphabet=None,
+                 layers=1, dropout=None, output_dir=None, sample_length=None, initial_epoch=0,
+                 period=1):
         self._data = data
         self._output_dim = output_dim
         self._input_length = input_length
@@ -124,12 +134,13 @@ class RNNWrapper(object):
         self._initial_epoch = initial_epoch
 
         if alphabet is None:
-            if isinstance(self._data):
+            if isinstance(self._data, (str, unicode)):
                 self.char_to_index, self.index_to_char = get_char_indices(data)
             else:
                 raise Exception('alphabet must be passed, when data is a generator')
         else:
-            self.char_to_index, self.index_to_char = get_char_indices(alphabet)
+            self.char_to_index = {c: i for i, c in enumerate(alphabet)}
+            self.index_to_char = {i: c for i, c in enumerate(alphabet)}
         self._input_dim = len(self.char_to_index)
 
         logger.debug('Input dim %d', self._input_dim)
@@ -137,11 +148,15 @@ class RNNWrapper(object):
         self._model = self._create(output_dim, self._input_dim, input_length, layers, dropout)
 
         self._callbacks = []
-        self._callbacks.append(GenerationCallback(self, output_dir=output_dir, sample_length=sample_length))
+        self._callbacks.append(GenerationCallback(
+            self, output_dir=output_dir, sample_length=sample_length,
+            period=period,
+        ))
         if output_dir is not None:
             self.store_model()
-            self._callbacks.append(self.get_save_callback(output_dir))
+            self._callbacks.append(self.get_save_callback(output_dir, period=period))
         self._fit = False
+        self._seed = None
 
     def store_model(self):
         if not os.path.exists(self._output_dir):
@@ -178,7 +193,7 @@ class RNNWrapper(object):
     WEIGHTS_FILENAME_GLOB = os.path.join(WEIGHTS_DIR, 'weights-*-*.hdf5')
 
     @classmethod
-    def get_save_callback(cls, dirname, model_name=None):
+    def get_save_callback(cls, dirname, model_name=None, period=1):
         weigths_dirname = os.path.join(dirname, cls.WEIGHTS_DIR)
         if not os.path.exists(weigths_dirname):
             os.mkdir(weigths_dirname)
@@ -188,12 +203,12 @@ class RNNWrapper(object):
             pattern = model_name + '-' + pattern
         callback = ModelCheckpoint(
             os.path.join(dirname, pattern),
-            monitor='loss', verbose=1, save_best_only=True, mode='min',
+            monitor='loss', verbose=1, save_best_only=True, mode='min', period=period,
         )
         return callback
 
     @classmethod
-    def get_best_model(cls, data, from_dir):
+    def get_best_model(cls, data, from_dir, **kwargs):
         model_filename = os.path.join(from_dir, cls.MODEL_FILENAME)
         wrapper_filename = os.path.join(from_dir, cls.WRAPPER_FILENAME)
         weights_filenames = glob(os.path.join(from_dir, cls.WEIGHTS_FILENAME_GLOB))
@@ -229,7 +244,7 @@ class RNNWrapper(object):
             initial_epoch = best_epoch + 1
         else:
             initial_epoch = None
-
+        wrapper_params.update(kwargs)
         wrapper = cls(data=data, initial_epoch=initial_epoch, **wrapper_params)
         if best_weights is not None:
             wrapper._model.load_weights(best_weights)
@@ -258,7 +273,11 @@ class RNNWrapper(object):
         model.compile(loss='categorical_crossentropy', optimizer='adam')
         return model
 
-    def fit(self, nb_epoch=0, ):
+    def fit(self, nb_epoch=0, generation_seed=None, samples_per_epoch=None, validation_data=None, nb_val_samples=None):
+        self._seed = generation_seed
+        if generation_seed is None and not inspect.isgenerator(self._data):
+            self._seed = self.get_random_seed(self._input_length)
+
         self._fit = True
         if self._initial_epoch > 1:
             nb_epoch = nb_epoch + self._initial_epoch
@@ -272,8 +291,10 @@ class RNNWrapper(object):
         elif inspect.isgenerator(self._data):
             self._model.fit_generator(
                 self._data,
-                batch_size=128, nb_epoch=nb_epoch, callbacks=self._callbacks,
-                initial_epoch=self._initial_epoch,
+                nb_epoch=nb_epoch, callbacks=self._callbacks,
+                initial_epoch=self._initial_epoch, samples_per_epoch=samples_per_epoch,
+                validation_data=validation_data,
+                nb_val_samples=nb_val_samples,
             )
 
     def sample(self, preds, diversity=1.0):
@@ -295,9 +316,15 @@ class RNNWrapper(object):
         assert self._fit
 
         if seed is None:
-            seed = self.get_random_seed()
-        initial_seed = unicode(seed)
+            if self._seed is not None:
+                seed = list(self._seed)
+            else:
+                raise Exception('Can\'t generate without a seed')
+
+        initial_seed = self._seed
+        seed = list(initial_seed)[:self._input_length]
         result = []
+
         for _ in xrange(length):
             seq = np.zeros((1, self._input_length, self._input_dim))
             for i, char in enumerate(seed):
@@ -307,6 +334,6 @@ class RNNWrapper(object):
             new_char_index = self.sample(preds, diversity)
             new_char = self.index_to_char[new_char_index]
             result.append(new_char)
-            seed += new_char
+            seed.append(new_char)
             seed = seed[1:]
-        return initial_seed + ''.join(result)
+        return u''.join(initial_seed + result)
